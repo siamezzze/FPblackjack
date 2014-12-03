@@ -1,0 +1,4 @@
+FPblackjack
+===========
+
+Haskell Blackjack implementation
