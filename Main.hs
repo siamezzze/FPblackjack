@@ -11,7 +11,7 @@ import Control.Monad.State
 -- evaluate the 'gameLoop'.
 main :: IO ()
 main = do
-  stdGen <- getStdGen
+  stdGen <- newStdGen
   evalStateT gameLoop $ mkGame stdGen hitUntilSixteen
 
 -- |The 'Game' data type contains all of the state information about a
