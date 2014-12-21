@@ -153,3 +153,4 @@ main = do
         [ "slave", host, port ] -> do
          backend <- initializeBackend host port rtable
          startSlave backend
+        _ -> return ()
