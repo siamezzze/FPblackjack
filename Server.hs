@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, DeriveDataTypeable, DeriveGeneric #-}
+{-# LANGUAGE TemplateHaskell, DeriveDataTypeable, DeriveGeneric, FlexibleInstances, UndecidableInstances #-}
 import Control.Distributed.Process
 import Control.Distributed.Process.Closure
 import Control.Distributed.Process.Node
@@ -12,6 +12,7 @@ import Control.Monad
 import System.Environment
 import qualified Data.Map.Strict as Map
 import Deck
+import System.Random
 --Предлагаю по возможности все игровое взаимодействие сделать в модуле Game (нынешний Main) и здесь импортировать его
 --import Game
 
@@ -69,7 +70,8 @@ master peers = do
     forM_ ps $ \pid -> do
         say $ printf "pinging %s" (show pid)
         send pid (Ping mypid)
-    waitForNames $ Map.fromList (map (\pid -> (pid , "")) ps)
+    stdGen <- liftIO (newStdGen)
+    waitForNames stdGen $ Map.fromList (map (\pid -> (pid , "")) ps)
     
 --Для образца
 waitForPongs :: [ProcessId] -> Process ()
@@ -85,8 +87,8 @@ waitForPongs ps = do
       _ -> say "MASTER received ping" >> terminate
 
 --Знакомство
-waitForNames :: IDCards -> Process ()
-waitForNames ids = 
+waitForNames :: StdGen -> IDCards -> Process ()
+waitForNames g ids = 
   if hasNames ids then do --Все поздоровались
     say $ show ids
     let ps = Map.keys ids
@@ -105,12 +107,12 @@ waitForNames ids =
         mypid <- getSelfPid
         say $ "Name " ++ name ++ " recieved"
         send p (Greetings mypid name)
-        waitForNames (Map.insert p name ids) --Запомнили имя, знакомимся дальше
+        waitForNames g (Map.insert p name ids) --Запомнили имя, знакомимся дальше
       _ -> say "Unexpected message" >> terminate
 
 --собственно, основная серверная часть - ожидание действий игроков и реакция на них
-waitForResults :: Results -> Process ()
-waitForResults res = 
+waitForResults :: StdGen -> Results -> Process ()
+waitForResults g res = 
   if hadPlayed res then do --Все уже на(до-)игрались
     say $ show res
     --здесь дилер тянет карты
