@@ -11,8 +11,10 @@ import Control.Monad.State
 -- evaluate the 'gameLoop'.
 main :: IO ()
 main = do
-  stdGen <- newStdGen
+  stdGen <- getStdGen
   evalStateT gameLoop $ mkGame stdGen hitUntilSixteen
+
+nDecks = 4
 
 -- |The 'Game' data type contains all of the state information about a
 -- blackjack game.
@@ -149,7 +151,7 @@ mkGame g strat = Game
   , dealerHand = dealerH
   , dealerAction = Hit
   , dealerStrategy = strat }
-  where d = execState shuffle $ mkDeck g
+  where d = execState shuffle $ mkDeck g nDecks
         ((playerH, dealerH), d') = runState deal $ d
 
 deal :: DeckState ([Card], [Card])

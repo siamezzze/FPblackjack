@@ -44,14 +44,16 @@ possiblePoints hand = nub $ map sum $ mapM possibleValues hand
 -- Колода - карты + генератор
 data Deck = Deck
   { cards :: [Card]
+	, number :: Int
   , gen :: StdGen }
   deriving (Show)
 
 -- создать колоду 
 -- TODO: больше одной
-mkDeck :: StdGen -> Deck
-mkDeck g = 
-  Deck { cards = [ card | card <- [Ace ..], _ <- [1..4] :: [Int] ]
+--mkDeck :: StdGen -> Deck
+mkDeck g n = 
+  Deck { cards = concat ( replicate n ( [ card | card <- [Ace ..], _ <- [1..4] :: [Int] ]) )
+			 , number = n
        , gen = g }
 
 type DeckState a = State Deck a
@@ -64,7 +66,7 @@ draw = takeCardAt 0
 shuffle :: DeckState ()
 shuffle = do
   curr <- get
-  shuffled <- replicateM 52 takeRandomCard
+  shuffled <- replicateM (52*(number curr)) takeRandomCard
   put curr { cards = shuffled }
 
 -- |'takeRandomCard' will pick one random card from the deck and remove it.
