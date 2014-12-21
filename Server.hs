@@ -92,6 +92,9 @@ waitForNames g ids =
   if hasNames ids then do --Все поздоровались
     say $ show ids
     let ps = Map.keys ids
+    let enumer = Map.fromList $ zip [0..] ps 
+    let names = Map.fromList $ map (\en -> 
+    say $ show enumer
     mypid <- getSelfPid
     --Создать новый экземпляр игры
     forM_ ps $ \pid -> do
