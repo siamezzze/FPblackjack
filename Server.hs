@@ -138,6 +138,9 @@ main = do
         [ "master" ] -> do
          backend <- initializeBackend defaultHost defaultPort rtable
          startMaster backend master
+        [ "master" , host, port] -> do
+         backend <- initializeBackend host port rtable
+         startMaster backend master
         [ "master", port ] -> do
          backend <- initializeBackend defaultHost port rtable
          startMaster backend master
