@@ -44,8 +44,10 @@ gameLoop = do
   if gameOver then handleGameOver
   else gameLoop
 
+
+
 playerInteraction curr = do
-    putStrLn $ "Your hand: " ++ (show $ playerHand curr)
+    putStrLn $ "Your hand: " ++ (show $ playerHand curr)++ ", " ++ (show (possiblePoints (playerHand curr) ))
     putStrLn $ "Dealer's hand: " ++ (showDealer $ dealerHand curr)
     putStrLn "What do you want to do? (Hit/Stay)"
     input <- getLine
