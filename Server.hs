@@ -93,7 +93,6 @@ waitForNames g ids =
     say $ show ids
     let ps = Map.keys ids
     let enumer = Map.fromList $ zip [0..] ps 
-    let names = Map.fromList $ map (\en -> 
     say $ show enumer
     mypid <- getSelfPid
     --Создать новый экземпляр игры
