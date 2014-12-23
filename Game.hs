@@ -61,7 +61,7 @@ drawCards n game player = (iterate (\g -> snd $ drawCard g player) game) !! n
 initializeStates :: Game -> Game
 initializeStates game = 
   let ps     = pids game
-  in  game {playerStates = Map.fromList $ map (\pid -> (pid, eState $ getHand game pid)) ps}
+  in  game {playerStates = Map.fromList $ map (\pid -> (pid, eState $ getHand game pid)) ps} --TODO: инициализировать руку дилеера
 
 initializeHands :: Game -> Game
 initializeHands game =

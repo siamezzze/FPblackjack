@@ -38,6 +38,7 @@ hadPlayed ids = all ( > 0) $ Map.elems ids
 playerActions :: Process () --
 playerActions = do
     m <- expect
+    --liftIO (getLine) --подумать
     case m of
         Ping from -> do
             say $ printf "ping received from %s" (show from) --Если пингуют, надо представиться
