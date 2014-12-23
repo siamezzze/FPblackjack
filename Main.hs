@@ -129,12 +129,14 @@ waitForNames g ids =
 broadcastInfo :: [ProcessId] -> Game -> Process ()
 broadcastInfo pids game = do --рассказать всем о состоянии игры
   mypid <- getSelfPid
-  
   forM_ pids $ \pid -> do
     say $ printf "sending game %s" (show pid)
     --Отправляем состояние игры
     send pid (Play mypid (showGame game)) 
-    
+
+askForActions :: [ProcessId] -> Game -> Process ()
+askForActions pids game = do
+  mypid <- getSelfPid
   let usersplaying = filter (\pid -> plays game (show pid)) pids --отбираем тех, кто играет в новом раунде
   forM_ usersplaying $ \pid -> do
     say $ printf "Asking for actions %s" (show pid)--Спрашиваем их о действиях
@@ -143,6 +145,7 @@ broadcastInfo pids game = do --рассказать всем о состояни
 playRound :: [ProcessId] -> [ProcessId] -> Game -> Process ()
 playRound allusers [] game = do --раунд окончен
   broadcastInfo allusers game --Отправляем _всем_ текущее состояние игры
+  askForActions allusers game
   let usersplaying = filter (\pid -> plays game (show pid)) allusers --отбираем тех, кто играет в новом раунде
   if (anybodyPlays game) then playRound allusers usersplaying game --если такие еще есть - запускаем новый раунд
   else playDealer allusers game --если таких нет - пора играть дилеру
@@ -161,13 +164,21 @@ playRound allusers usersplaying game = do
     
 
 playDealer :: [ProcessId] -> Game -> Process ()
-playDealer pids game = return ()
-
-dealerRound :: [ProcessId] -> Game -> Process ()
-dealerRound = undefined
+playDealer pids game = do
+  mypid <- getSelfPid
+  forM_ pids $ \pid -> do
+    send pid (Result mypid (dealerFullInfo game)) 
+  if (dealerState game /= Plays) then
+    sendResults pids game
+  else do
+    let game' = if (17 > (score $ dealerHand game)) then hit "dealer" game else stay "dealer" game
+    playDealer pids game'
 
 sendResults :: [ProcessId] -> Game -> Process ()
-sendResults = undefined
+sendResults pids game = do
+  mypid <- getSelfPid
+  forM_ pids $ \pid -> do
+    send pid (Results mypid (endGameResults game)) 
 
 
 

@@ -61,7 +61,8 @@ drawCards n game player = (iterate (\g -> snd $ drawCard g player) game) !! n
 initializeStates :: Game -> Game
 initializeStates game = 
   let ps     = pids game
-  in  game {playerStates = Map.fromList $ map (\pid -> (pid, eState $ getHand game pid)) ps} --TODO: инициализировать руку дилеера
+  in  game {playerStates = Map.fromList $ map (\pid -> (pid, eState $ getHand game pid)) ps,
+            dealerState  = eState $ dealerHand game} --TODO: инициализировать руку дилеера
 
 initializeHands :: Game -> Game
 initializeHands game =
@@ -99,6 +100,7 @@ stay :: String -> Game -> Game
 stay pid = setState pid Stays
 
 getState :: Game -> String -> PlayerState
+getState game "dealer" = dealerState game
 getState game pid = (playerStates game) Map.! pid
 
 getName :: Game -> String -> String
@@ -119,17 +121,11 @@ obfuscate h = show $ "?" : (map (show) (tail h))
 players :: Game -> [String]
 players game = filter (\pid -> plays game pid) (pids game)
 
-winners :: Game -> [String]
-winners game = filter (\pid -> (score $ getHand game pid) > (score $ dealerHand game)) (pids game)
-
-pushers :: Game -> [String]
-pushers game = if (21 == score (dealerHand game)) then filter (\pid -> (score $ getHand game pid) == 21) (pids game) else []
-
 showGame :: Game -> String
 showGame game =
   let playersInfo = map (\pid -> (getName game pid) ++ " : " ++ show (getHand game pid) ++ " " ++ show (score $ getHand game pid) ++ " - " ++ show (getState game pid)) (pids game)
       dealerInfo  = "Dealer: " ++ (obfuscate $ dealerHand game)
-  in (unlines playersInfo) ++ "\n" ++ dealerInfo
+  in "-------\n" ++ (unlines playersInfo) ++ "\n" ++ dealerInfo
 
 parseAction :: String -> Maybe Action
 parseAction "Hit" = Just Hit
@@ -157,6 +153,32 @@ applyAction game pid Stay = stay pid game
 
 playerInfo :: Game -> String -> String
 playerInfo game pid = "Your hand: " ++ show (getHand game pid) ++ " " ++ show (score $ getHand game pid) ++ " - " ++ show (getState game pid)
+
+dealerFullInfo :: Game -> String
+dealerFullInfo game = "Dealer: " ++ show (dealerHand game) ++ " " ++ show (score $ dealerHand game) ++ " " ++ show (dealerState game)
+
+winners :: Game -> [String]
+winners game = filter (\pid -> ((score $ getHand game pid) > (score $ dealerHand game)) && ((score $ getHand game pid) < 21)) (pids game)
+
+blackjackers :: Game -> [String]
+blackjackers game = if (dealerState game /= Blackjack) then filter (\pid -> (score $ getHand game pid) == 21) (pids game) else []
+
+pushers :: Game -> [String]
+pushers game = filter (\pid -> ((score $ getHand game pid) == (score $ dealerHand game)) && ((score $ getHand game pid) > 0 )) (pids game)
+
+endGameResults :: Game -> String
+endGameResults game = unlines scores ++ "------\n" ++ dInfo ++ bjInfo ++ winsInfo ++ pushInfo ++ addInfo  
+  where scores = map (\pid -> (getName game pid) ++ " : " ++ show (score $ getHand game pid)) (pids game)
+        dealerScore = show (score $ dealerHand game)
+        dInfo = if (dealerState game == Blackjack) then "The dealer has blackjack!\n" else if (dealerState game == Boosted) then "The dealer boosted!\n" else ""
+        wins = map (getName game) $ winners game
+        pushes = map (getName game) $ pushers game
+        bj = map (getName game) $ blackjackers game
+        bjInfo = if (bj /= []) then "The following players won 3 to 2 :\n" ++ unlines bj else ""
+        winsInfo = if (wins /= []) then "The following players won 1 to 1 :\n" ++ unlines wins else ""
+        pushInfo = if (pushes /= []) then "The following players pushed :\n" ++ unlines pushes else ""
+        addInfo = if ((wins /= []) || (bj /= [])) then "Congratulations!" else "This time, casino wins."
+       
 
 interactWithPlayer :: Game -> String -> IO Game
 interactWithPlayer game pid = do
