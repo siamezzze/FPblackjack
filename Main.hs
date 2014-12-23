@@ -82,21 +82,7 @@ master peers = do
         send pid (Ping mypid)
     stdGen <- liftIO (newStdGen)
     waitForNames stdGen $ Map.fromList (map (\pid -> (pid , "")) ps)
-    
---Для образца
-waitForPongs :: [ProcessId] -> Process ()
-waitForPongs [ ] = return ()
-waitForPongs ps = do
-    m <- expect
-    case m of
-      Pong p -> waitForPongs (filter (/= p) ps)
-      Name p name -> do 
-        mypid <- getSelfPid
-        say $ "Name" ++ name ++ "recieved"
-        send p (Greetings mypid name)
-      _ -> say "MASTER received ping" >> terminate
       
-
 --Знакомство
 waitForNames :: StdGen -> IDCards -> Process ()
 waitForNames g ids = 
@@ -110,7 +96,7 @@ waitForNames g ids =
     let names = Map.mapKeys (show) ids
     let game = makeGame names stdGen
     let usersplaying = filter (\pid -> plays game (show pid)) pids
-    say $ show game
+    --say $ show game --Показать всю игру вместе с колодой:)
     --playRound pids usersplaying game 
     playRound pids [] game 
     --waitForResults ps
@@ -163,7 +149,7 @@ playRound allusers usersplaying game = do
     _ -> playRound allusers usersplaying game --вообще непонятное сообщение - продолжаем раунд (игнорируем)
     
 
-playDealer :: [ProcessId] -> Game -> Process ()
+playDealer :: [ProcessId] -> Game -> Process () --ход Дилера
 playDealer pids game = do
   mypid <- getSelfPid
   forM_ pids $ \pid -> do
@@ -171,7 +157,7 @@ playDealer pids game = do
   if (dealerState game /= Plays) then
     sendResults pids game
   else do
-    let game' = if (17 > (score $ dealerHand game)) then hit "dealer" game else stay "dealer" game
+    let game' = if (17 > (score $ dealerHand game)) then hit "dealer" game else stay "dealer" game --По правилам он обязан брать, пока не наберет 17 и остановиться, как только наберет
     playDealer pids game'
 
 sendResults :: [ProcessId] -> Game -> Process ()
@@ -192,22 +178,22 @@ main = do
     args <- getArgs
     let rtable = Main.__remoteTable initRemoteTable
     case args of
-        [ "master" ] -> do
+        [ "dealer" ] -> do
          backend <- initializeBackend defaultHost defaultPort rtable
          startMaster backend master
-        [ "master" , host, port] -> do
+        [ "dealer" , host, port] -> do
          backend <- initializeBackend host port rtable
          startMaster backend master
-        [ "master", port ] -> do
+        [ "dealer", port ] -> do
          backend <- initializeBackend defaultHost port rtable
          startMaster backend master
-        [ "slave" ] -> do
+        [ "player" ] -> do
          backend <- initializeBackend defaultHost defaultPort rtable
          startSlave backend
-        [ "slave", port ] -> do
+        [ "player", port ] -> do
          backend <- initializeBackend defaultHost port rtable
          startSlave backend
-        [ "slave", host, port ] -> do
+        [ "player", host, port ] -> do
          backend <- initializeBackend host port rtable
          startSlave backend
         _ -> return ()
