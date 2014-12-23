@@ -153,7 +153,7 @@ playRound allusers usersplaying game = do
       if (from `elem` usersplaying) then do --от того, кто действовать может
           let game' = applyAction game (show from) (actionFromInt action) --применим это действие
           send from (Result mypid (playerInfo game' (show from))) --и отправим ему результат
-          playRound allusers (filter (/= from) usersplaying) game --продолжим раунд, учтя, что он в этом раунде уже не играет
+          playRound allusers (filter (/= from) usersplaying) game' --продолжим раунд, учтя, что он в этом раунде уже не играет
       else
           playRound allusers usersplaying game --от того, кто действовать не может - продолжаем раунд (игнорируем) 
     _ -> playRound allusers usersplaying game --вообще непонятное сообщение - продолжаем раунд (игнорируем)
