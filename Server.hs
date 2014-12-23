@@ -12,19 +12,19 @@ import Control.Monad
 import System.Environment
 import qualified Data.Map.Strict as Map
 import Deck
+import Game
 import System.Random
 --Предлагаю по возможности все игровое взаимодействие сделать в модуле Game (нынешний Main) и здесь импортировать его
 --import Game
 
 --типы сообщений
-data Msg = Ping ProcessId | Pong ProcessId | Name ProcessId String | Greetings ProcessId String | Result ProcessId Int | Act ProcessId Int | Play ProcessId
+data Msg = Ping ProcessId | Pong ProcessId | Name ProcessId String | Greetings ProcessId String | Play ProcessId String | Act ProcessId Int | Result ProcessId String | Results ProcessId String | Ask ProcessId String
   deriving (Typeable, Generic)
 instance Binary Msg
 
 class (Binary a, Typeable a) => Serializable a
 instance (Binary a, Typeable a) => Serializable a
 
-data Action = Hit | Stay deriving (Eq, Read)
 
 type IDCards = Map.Map ProcessId String
 type Results = Map.Map ProcessId Int
@@ -35,7 +35,7 @@ hasNames ids = all ( /= "") $ Map.elems ids
 hadPlayed :: Results -> Bool
 hadPlayed ids = all ( > 0) $ Map.elems ids
 
-playerActions :: Process ()
+playerActions :: Process () --
 playerActions = do
     m <- expect
     case m of
@@ -49,13 +49,22 @@ playerActions = do
         Greetings from name -> do
             liftIO . putStrLn $ "Greetings, " ++ name ++ "!"
             playerActions
-        Play from -> do
-            liftIO . putStrLn $ "We're starting the game! (without you)"
-            --Здесь нужно выдать игроку информацию о состоянии игры и спросить о его действиях
-        --Result from res -> do
-            --Предварительный результат, т.е. количество набранных очков
-        --Results from res -> do 
+        Play from game -> do --Здесь нужно выдать игроку информацию о состоянии игры
+            liftIO . putStrLn $ game
+            playerActions
+        Ask from st -> do --Спросить о его действиях
+            mypid <- getSelfPid
+            liftIO . putStrLn $ st
+            myaction <- liftIO (askForAction')
+            send from (Act mypid $ actionToInt myaction)
+            playerActions
+        Result from res -> do--Предварительный результат, т.е. рука, состояние, количество набранных очков
+            liftIO . putStrLn $ res
+            playerActions
+        Results from res -> do 
+            liftIO . putStrLn $ res
             --Полная информация о набранных игроками и дилером очках
+        _ -> playerActions
         
 
 remotable ['playerActions]
@@ -85,21 +94,24 @@ waitForPongs ps = do
         say $ "Name" ++ name ++ "recieved"
         send p (Greetings mypid name)
       _ -> say "MASTER received ping" >> terminate
+      
 
 --Знакомство
 waitForNames :: StdGen -> IDCards -> Process ()
 waitForNames g ids = 
   if hasNames ids then do --Все поздоровались
     say $ show ids
-    let ps = Map.keys ids
-    let enumer = Map.fromList $ zip [0..] ps 
-    say $ show enumer
+    let pids = Map.keys ids
     mypid <- getSelfPid
+    
     --Создать новый экземпляр игры
-    forM_ ps $ \pid -> do
-        say $ printf "triggering game %s" (show pid)
-        --Здесь отправлять нужно полностью состояние игры либо руки дилера и игрока
-        send pid (Play mypid) 
+    stdGen <- liftIO (newStdGen)
+    let names = Map.mapKeys (show) ids
+    let game = makeGame names stdGen
+    let usersplaying = filter (\pid -> plays game (show pid)) pids
+    say $ show game
+    --playRound pids usersplaying game 
+    playRound pids [] game 
     --waitForResults ps
     return () 
   else do
@@ -112,23 +124,54 @@ waitForNames g ids =
         waitForNames g (Map.insert p name ids) --Запомнили имя, знакомимся дальше
       _ -> say "Unexpected message" >> terminate
 
---собственно, основная серверная часть - ожидание действий игроков и реакция на них
-waitForResults :: StdGen -> Results -> Process ()
-waitForResults g res = 
-  if hadPlayed res then do --Все уже на(до-)игрались
-    say $ show res
-    --здесь дилер тянет карты
-    --проверяем результаты, выдаем их игрокам
-    return () 
-  else do
-    m <- expect
-    case m of
-      Act playerAction name -> do 
-        mypid <- getSelfPid
-        undefined
-        --обработать действие. Если Hit, выдать карту (либо обновленное состояние игры) и проверить буст
-        --Stay или уже проиграл - запустить waitForResults с занесенными туда результатами
-      _ -> say "Unexpected message" >> terminate
+--Игра
+broadcastInfo :: [ProcessId] -> Game -> Process ()
+broadcastInfo pids game = do --рассказать всем о состоянии игры
+  mypid <- getSelfPid
+  
+  forM_ pids $ \pid -> do
+    say $ printf "sending game %s" (show pid)
+    --Отправляем состояние игры
+    send pid (Play mypid (showGame game)) 
+    
+  let usersplaying = filter (\pid -> plays game (show pid)) pids --отбираем тех, кто играет в новом раунде
+  forM_ usersplaying $ \pid -> do
+    say $ printf "Asking for actions %s" (show pid)--Спрашиваем их о действиях
+    send pid (Ask mypid (playerInfo game (show pid))) 
+
+playRound :: [ProcessId] -> [ProcessId] -> Game -> Process ()
+playRound allusers [] game = do --раунд окончен
+  broadcastInfo allusers game --Отправляем _всем_ текущее состояние игры
+  let usersplaying = filter (\pid -> plays game (show pid)) allusers --отбираем тех, кто играет в новом раунде
+  if (anybodyPlays game) then playRound allusers usersplaying game --если такие еще есть - запускаем новый раунд
+  else playDealer allusers game --если таких нет - пора играть дилеру
+playRound allusers usersplaying game = do
+  mypid <- getSelfPid
+  m <- expect --ждем сообщения
+  case m of
+    Act from action -> --если сообщение о действии
+      if (from `elem` usersplaying) then do --от того, кто действовать может
+          let game' = applyAction game (show from) (actionFromInt action) --применим это действие
+          send from (Result mypid (playerInfo game' (show from))) --и отправим ему результат
+          playRound allusers (filter (/= from) usersplaying) game --продолжим раунд, учтя, что он в этом раунде уже не играет
+      else
+          playRound allusers usersplaying game --от того, кто действовать не может - продолжаем раунд (игнорируем) 
+    _ -> playRound allusers usersplaying game --вообще непонятное сообщение - продолжаем раунд (игнорируем)
+    
+
+playDealer :: [ProcessId] -> Game -> Process ()
+playDealer pids game = return ()
+
+dealerRound :: [ProcessId] -> Game -> Process ()
+dealerRound = undefined
+
+sendResults :: [ProcessId] -> Game -> Process ()
+sendResults = undefined
+
+
+
+
+
 
 defaultHost = "127.0.0.1"
 defaultPort = "4242"

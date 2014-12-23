@@ -6,6 +6,7 @@ import Data.List
 import qualified Data.Map.Strict as Map
 import Control.Monad.State
 import Data.Maybe
+import Data.Binary
 
 type Hand = [Card]
 data Action = Hit | Stay deriving (Eq, Read)
@@ -115,6 +116,9 @@ anybodyPlays game = any (plays game) (pids game)
 obfuscate :: Hand -> String
 obfuscate h = show $ "?" : (map (show) (tail h))
 
+players :: Game -> [String]
+players game = filter (\pid -> plays game pid) (pids game)
+
 winners :: Game -> [String]
 winners game = filter (\pid -> (score $ getHand game pid) > (score $ dealerHand game)) (pids game)
 
@@ -146,6 +150,13 @@ askForAction game pid = do
   putStrLn $ showGame game
   putStrLn $ "Your hand: " ++ show (getHand game pid) ++ " " ++ show (score $ getHand game pid)
   askForAction'
+  
+applyAction :: Game -> String -> Action -> Game
+applyAction game pid Hit  = hit pid game
+applyAction game pid Stay = stay pid game
+
+playerInfo :: Game -> String -> String
+playerInfo game pid = "Your hand: " ++ show (getHand game pid) ++ " " ++ show (score $ getHand game pid) ++ " - " ++ show (getState game pid)
 
 interactWithPlayer :: Game -> String -> IO Game
 interactWithPlayer game pid = do
@@ -157,13 +168,21 @@ interactWithPlayer game pid = do
     putStrLn $ "Your hand: " ++ show (getHand game' pid) ++ " " ++ show (score $ getHand game' pid) ++ " - " ++ show (getState game' pid)
     return game'
 
+actionToInt :: Action -> Int
+actionToInt Hit = 1
+actionToInt Stay = 0
+
+actionFromInt :: Int -> Action
+actionFromInt 1 = Hit
+actionFromInt 0 = Stay
+
 --For testing only
-main :: IO ()
-main = do
-  stdGen <- newStdGen
-  let game = makeGame (Map.fromList [("player1", "Ada"), ("player2", "Sally")]) stdGen
-  putStrLn $ showGame game
-  let game' = stay "player1" game
-  putStrLn $ showGame game'
-  game'' <- interactWithPlayer game' "player2"
-  putStrLn $ showGame game''
+--main :: IO ()
+--main = do
+--  stdGen <- newStdGen
+--  let game = makeGame (Map.fromList [("player1", "Ada"), ("player2", "Sally")]) stdGen
+--  putStrLn $ showGame game
+--  let game' = stay "player1" game
+--  putStrLn $ showGame game'
+--  game'' <- interactWithPlayer game' "player2"
+--  putStrLn $ showGame game''
