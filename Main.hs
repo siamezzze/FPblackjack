@@ -14,8 +14,7 @@ import qualified Data.Map.Strict as Map
 import Deck
 import Game
 import System.Random
---Предлагаю по возможности все игровое взаимодействие сделать в модуле Game (нынешний Main) и здесь импортировать его
---import Game
+--Кажется, все эти import'ы действительно нужны...
 
 --типы сообщений
 data Msg = Ping ProcessId | Pong ProcessId | Name ProcessId String | Greetings ProcessId String | Play ProcessId String | Act ProcessId Int | Result ProcessId String | Results ProcessId String | Ask ProcessId String
@@ -120,6 +119,7 @@ broadcastInfo pids game = do --рассказать всем о состояни
     --Отправляем состояние игры
     send pid (Play mypid (showGame game)) 
 
+--Запросить действия у игроков
 askForActions :: [ProcessId] -> Game -> Process ()
 askForActions pids game = do
   mypid <- getSelfPid
@@ -128,6 +128,7 @@ askForActions pids game = do
     say $ printf "Asking for actions %s" (show pid)--Спрашиваем их о действиях
     send pid (Ask mypid (playerInfo game (show pid))) 
 
+--Раунд игры
 playRound :: [ProcessId] -> [ProcessId] -> Game -> Process ()
 playRound allusers [] game = do --раунд окончен
   broadcastInfo allusers game --Отправляем _всем_ текущее состояние игры
@@ -148,7 +149,7 @@ playRound allusers usersplaying game = do
           playRound allusers usersplaying game --от того, кто действовать не может - продолжаем раунд (игнорируем) 
     _ -> playRound allusers usersplaying game --вообще непонятное сообщение - продолжаем раунд (игнорируем)
     
-
+--Ход дилера
 playDealer :: [ProcessId] -> Game -> Process () --ход Дилера
 playDealer pids game = do
   mypid <- getSelfPid
@@ -160,6 +161,8 @@ playDealer pids game = do
     let game' = if (17 > (score $ dealerHand game)) then hit "dealer" game else stay "dealer" game --По правилам он обязан брать, пока не наберет 17 и остановиться, как только наберет
     playDealer pids game'
 
+--Результаты игры
+--TODO: Сейчас выводятся только общие резульаты, неплохо было бы еще поздравлять игрока с победой лично :)
 sendResults :: [ProcessId] -> Game -> Process ()
 sendResults pids game = do
   mypid <- getSelfPid

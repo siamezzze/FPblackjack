@@ -15,7 +15,6 @@ import System.Random
 import Control.Monad.State
 import Data.List
 
--- |The 'Card' data type represents the possible playing card ranks.
 data Card = Ace
           | Two
           | Three
@@ -31,6 +30,7 @@ data Card = Ace
           | King
           deriving (Enum, Show, Eq)
 
+--Из-за того, что туз оценивается по разному
 possibleValues :: Card -> [Int]
 possibleValues card
     | card == Ace = [1, 11]
@@ -49,7 +49,7 @@ data Deck = Deck
   deriving (Show)
 
 -- создать колоду 
--- TODO: больше одной
+-- TODO: больше одной - сделано
 --mkDeck :: StdGen -> Deck
 mkDeck g n = 
   Deck { cards = concat ( replicate n ( [ card | card <- [Ace ..], _ <- [1..4] :: [Int] ]) )
@@ -62,15 +62,14 @@ type DeckState a = State Deck a
 draw :: DeckState Card
 draw = takeCardAt 0
 
--- |'shuffle' takes a 52-card deck and randomly shuffles its elements.
+-- перемешать
 shuffle :: DeckState ()
 shuffle = do
   curr <- get
   shuffled <- replicateM (52*(number curr)) takeRandomCard
   put curr { cards = shuffled }
 
--- |'takeRandomCard' will pick one random card from the deck and remove it.
--- It is a helper-function used by 'shuffle'.
+-- Это для перемешивания - достать случайную карту и удалить ее
 takeRandomCard :: DeckState Card
 takeRandomCard = do
   curr <- get
@@ -80,8 +79,7 @@ takeRandomCard = do
   put curr { gen = gen' }
   return card
 
--- |'takeCardAt' will pick the card at the given index and remove it from the
--- deck.
+-- Еще одна вспомогалельная - достать карту с заданным индексом и удалить ее
 takeCardAt :: Int -> DeckState Card
 takeCardAt i = do
   curr <- get
