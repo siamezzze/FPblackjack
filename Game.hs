@@ -5,6 +5,7 @@ import System.Random
 import Data.List
 import qualified Data.Map.Strict as Map
 import Control.Monad.State
+import Data.Maybe
 
 type Hand = [Card]
 data Action = Hit | Stay deriving (Eq, Read)
@@ -29,11 +30,11 @@ makeGame names gen =
         { shoe         = s
         , pids         = ps
         , playerHands  = Map.empty
-        , playerStates = Map.fromList (map (\pid -> (pid, Plays)) ps)
+        , playerStates = Map.empty
         , playerNames  = names
         , dealerHand   = []
         , dealerState  = Plays }
-  in initializeHands emptygame
+  in initializeStates $ initializeHands emptygame
 
 drawCard :: Game -> String -> (Hand, Game)
 drawCard game "dealer" =
@@ -56,6 +57,11 @@ drawCard game pid =
 drawCards :: Int -> Game -> String -> Game
 drawCards n game player = (iterate (\g -> snd $ drawCard g player) game) !! n 
 
+initializeStates :: Game -> Game
+initializeStates game = 
+  let ps     = pids game
+  in  game {playerStates = Map.fromList $ map (\pid -> (pid, eState $ getHand game pid)) ps}
+
 initializeHands :: Game -> Game
 initializeHands game =
   let ps = pids game
@@ -71,6 +77,14 @@ bust = and . map ((<) 21) . possiblePoints --проверить
 twentyOne :: Hand -> Bool
 twentyOne = any ((==) 21) . possiblePoints
 
+best :: Hand -> Int
+best = maximum . filter ((>=) 21) . possiblePoints
+
+score :: Hand -> Int
+score h 
+  | bust h    = 0
+  | otherwise = best h
+
 eState :: Hand -> PlayerState --не учитывает Stays, по логике вообще не должен вызываться в этом случае
 eState hand = if bust hand then Boosted else if twentyOne hand then Blackjack else Plays
 
@@ -80,15 +94,76 @@ hit pid game =
       state         = eState hand
   in setState pid state game'
 
+stay :: String -> Game -> Game
+stay pid = setState pid Stays
+
 getState :: Game -> String -> PlayerState
 getState game pid = (playerStates game) Map.! pid
 
+getName :: Game -> String -> String
+getName game pid = (playerNames game) Map.! pid
+
+getHand :: Game -> String -> Hand
+getHand game pid = (playerHands game) Map.! pid
+
 plays :: Game -> String -> Bool 
 plays game pid = (getState game pid) == Plays
+
+anybodyPlays :: Game -> Bool
+anybodyPlays game = any (plays game) (pids game)
+
+obfuscate :: Hand -> String
+obfuscate h = show $ "?" : (map (show) (tail h))
+
+winners :: Game -> [String]
+winners game = filter (\pid -> (score $ getHand game pid) > (score $ dealerHand game)) (pids game)
+
+pushers :: Game -> [String]
+pushers game = if (21 == score (dealerHand game)) then filter (\pid -> (score $ getHand game pid) == 21) (pids game) else []
+
+showGame :: Game -> String
+showGame game =
+  let playersInfo = map (\pid -> (getName game pid) ++ " : " ++ show (getHand game pid) ++ " " ++ show (score $ getHand game pid) ++ " - " ++ show (getState game pid)) (pids game)
+      dealerInfo  = "Dealer: " ++ (obfuscate $ dealerHand game)
+  in (unlines playersInfo) ++ "\n" ++ dealerInfo
+
+parseAction :: String -> Maybe Action
+parseAction "Hit" = Just Hit
+parseAction "h" = Just Hit
+parseAction "Stay" = Just Stay
+parseAction "s" = Just Stay
+parseAction _ = Nothing
+
+askForAction' :: IO Action
+askForAction' = do
+  putStrLn "Enter your action (\"Hit\", \"h\" - Hit, \"Stay\", \"s\" - Stay."
+  input <- getLine
+  let pa = parseAction input
+  if isJust pa then return (fromJust pa) else askForAction' 
+
+askForAction :: Game -> String -> IO Action
+askForAction game pid = do
+  putStrLn $ showGame game
+  putStrLn $ "Your hand: " ++ show (getHand game pid) ++ " " ++ show (score $ getHand game pid)
+  askForAction'
+
+interactWithPlayer :: Game -> String -> IO Game
+interactWithPlayer game pid = do
+  let st = getState game pid
+  if (st /= Plays) then return game else do
+    act <- askForAction game pid
+    let game' = case act of Hit  -> hit pid game
+                            Stay -> stay pid game
+    putStrLn $ "Your hand: " ++ show (getHand game' pid) ++ " " ++ show (score $ getHand game' pid) ++ " - " ++ show (getState game' pid)
+    return game'
 
 --For testing only
 main :: IO ()
 main = do
   stdGen <- newStdGen
   let game = makeGame (Map.fromList [("player1", "Ada"), ("player2", "Sally")]) stdGen
-  putStrLn $ show game
+  putStrLn $ showGame game
+  let game' = stay "player1" game
+  putStrLn $ showGame game'
+  game'' <- interactWithPlayer game' "player2"
+  putStrLn $ showGame game''
