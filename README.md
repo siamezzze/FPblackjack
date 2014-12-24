@@ -5,5 +5,8 @@ Blackjack game
 
  - cabal configure
  - cabal build
-The resulting executable should be in FPblackjack-0.1.0.0/dist/build/FPblackjack after that
-run it with ./FPblackjack player <IP adress (optional)> <port number> for player or ./FPblackjack dealer for dealer
+, then:
+ - cabal run player (port number)
+for every player (they will then have to wait for dealer to start the game)
+ - cabal run dealer
+for dealer
