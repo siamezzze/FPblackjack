@@ -1,9 +1,9 @@
 FPblackjack
 ===========
 
-Haskell Blackjack implementation
+Blackjack game
 
-На данный момент для сборки нужны:
-Control.Distributed.Process (cabal install distributed-process) 
-Control.Distributed.Process.Backend.SimpleLocalNet (cabal install distributed-process-simplelocalnet)
-Data.Map.Strict (cabal install containers)
+ - cabal configure
+ - cabal build
+The resulting executable should be in FPblackjack-0.1.0.0/dist/build/FPblackjack after that
+run it with ./FPblackjack player <IP adress (optional)> <port number> for player or ./FPblackjack dealer for dealer
