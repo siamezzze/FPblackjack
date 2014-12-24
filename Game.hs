@@ -167,7 +167,7 @@ askForAction' = do
   putStrLn $ "------\n" ++ "Enter your action (\"Hit\", \"h\" - Hit, \"Stay\", \"s\" - Stay."
   input <- getLine
   let pa = parseAction input
-  if isJust pa then return (fromJust pa) else askForAction' 
+  if isJust pa then return (fromJust pa) else (do putStrLn ("Incorrect input.") ; askForAction')
 
 --Вывести состояние игры и запросить действие
 --(кажется, не понадобилось)
@@ -203,7 +203,7 @@ pushers :: Game -> [String]
 pushers game = filter (\pid -> ((score $ getHand game pid) == (score $ dealerHand game)) && ((score $ getHand game pid) > 0 )) (pids game)
 
 --Подвести итоги игры
---TODO: Я не уверена, что все варианты обрабатываются правильно, нужно проверить.
+--TODO: Вывод проверила.
 endGameResults :: Game -> String
 endGameResults game = unlines scores ++ "------\n" ++ dInfo ++ bjInfo ++ winsInfo ++ pushInfo ++ addInfo  
   where scores = map (\pid -> (getName game pid) ++ " : " ++ show (score $ getHand game pid)) (pids game)

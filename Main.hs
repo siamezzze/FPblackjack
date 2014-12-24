@@ -172,7 +172,7 @@ sendResults pids game = do
 
 
 
-
+note = "Incorrect arguments.\n./Main player\n./Main player <port number>\n./Main player <host> <port number>\n./Main dealer\n./Main dealer <port number>\n./Main dealer <host> <port number>\n--default host = 127.0.0.1\n--default port = 4242"
 
 defaultHost = "127.0.0.1"
 defaultPort = "4242"
@@ -199,4 +199,4 @@ main = do
         [ "player", host, port ] -> do
          backend <- initializeBackend host port rtable
          startSlave backend
-        _ -> return ()
+        _ -> do putStrLn note
