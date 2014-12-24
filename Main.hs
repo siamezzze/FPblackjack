@@ -173,6 +173,7 @@ sendResults pids game = do
 
 
 note = "Incorrect arguments.\n./Main player\n./Main player <port number>\n./Main player <host> <port number>\n./Main dealer\n./Main dealer <port number>\n./Main dealer <host> <port number>\n--default host = 127.0.0.1\n--default port = 4242"
+waitMes = "Wait for dealer to start the game."
 
 defaultHost = "127.0.0.1"
 defaultPort = "4242"
@@ -191,12 +192,15 @@ main = do
          backend <- initializeBackend defaultHost port rtable
          startMaster backend master
         [ "player" ] -> do
-         backend <- initializeBackend defaultHost defaultPort rtable
+         backend <- initializeBackend defaultHost defaultPort rtable;
+				 putStrLn waitMes
          startSlave backend
         [ "player", port ] -> do
-         backend <- initializeBackend defaultHost port rtable
+         backend <- initializeBackend defaultHost port rtable;
+				 putStrLn waitMes
          startSlave backend
         [ "player", host, port ] -> do
-         backend <- initializeBackend host port rtable
+         backend <- initializeBackend host port rtable;
+				 putStrLn waitMes
          startSlave backend
         _ -> do putStrLn note
