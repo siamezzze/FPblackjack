@@ -61,12 +61,15 @@ drawCard game pid =
 drawCards :: Int -> Game -> String -> Game
 drawCards n game player = (iterate (\g -> snd $ drawCard g player) game) !! n 
 
+blackjack :: Hand -> Bool
+blackjack hand = (2 == length hand) && twentyOne hand 
+
 --Инициализация состояний для начала игры (вообще говоря, по умолчанию считаем, что все играют, т.е. Plays, но возможна ситуация блэкджека в первых 2х картах
 initializeStates :: Game -> Game
 initializeStates game = 
   let ps     = pids game
-  in  game {playerStates = Map.fromList $ map (\pid -> (pid, eState $ getHand game pid)) ps,
-            dealerState  = eState $ dealerHand game} --TODO: инициализировать руку дилеера
+  in  game {playerStates = Map.fromList $ map (\pid -> (pid, if blackjack (getHand game pid) then Blackjack else Plays)) ps,
+            dealerState  = eState $ dealerHand game} 
 
 --Сдать карты
 initializeHands :: Game -> Game
@@ -83,7 +86,7 @@ setState pid ps game = game {playerStates = Map.insert pid ps $ playerStates gam
 bust :: Hand -> Bool
 bust = and . map ((<) 21) . possiblePoints --проверить
 
---Проверка на блэкджек
+--Проверка на 21
 twentyOne :: Hand -> Bool
 twentyOne = any ((==) 21) . possiblePoints
 
@@ -99,7 +102,7 @@ score h
 
 --По данной руке определить состояние (вызывается после Hit)
 eState :: Hand -> PlayerState --не учитывает Stays, по логике вообще не должен вызываться в этом случае
-eState hand = if bust hand then Boosted else if twentyOne hand then Blackjack else Plays
+eState hand = if bust hand then Boosted else if twentyOne hand then Stays else Plays
 
 --Действие - добор карты
 hit :: String -> Game -> Game
@@ -161,7 +164,7 @@ parseAction _ = Nothing
 --Запросить действие
 askForAction' :: IO Action
 askForAction' = do
-  putStrLn "Enter your action (\"Hit\", \"h\" - Hit, \"Stay\", \"s\" - Stay."
+  putStrLn $ "------\n" ++ "Enter your action (\"Hit\", \"h\" - Hit, \"Stay\", \"s\" - Stay."
   input <- getLine
   let pa = parseAction input
   if isJust pa then return (fromJust pa) else askForAction' 
@@ -193,7 +196,7 @@ winners game = filter (\pid -> ((score $ getHand game pid) > (score $ dealerHand
 
 --Отобрать всех, кто выиграл 3 к 2, то есть получил блэкджек (только если дилер его не получил)
 blackjackers :: Game -> [String]
-blackjackers game = if (dealerState game /= Blackjack) then filter (\pid -> (score $ getHand game pid) == 21) (pids game) else []
+blackjackers game = if (dealerState game /= Blackjack) then filter (\pid -> ((getState game pid) == Blackjack)) (pids game) else []
 
 --Отобрать тех, кто сыграл вничью (в этом случае они остаются при своих ставках)
 pushers :: Game -> [String]
