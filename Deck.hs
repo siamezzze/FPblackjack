@@ -35,7 +35,7 @@ possibleValues :: Card -> [Int]
 possibleValues card
     | card == Ace = [1, 11]
     | card `elem` [Jack,Queen,King] = [10]
-    | otherwise = [fromEnum card]
+    | otherwise = [fromEnum card + 1]
 
 
 possiblePoints :: [Card] -> [Int]
